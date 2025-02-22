@@ -26,6 +26,103 @@ function calcGroupDelay(freq, phase) {
 	}
 	return [freqNew, groupDelay];
 }
+function fft( impulse ) {
+	var impL   = impulse.length;
+	if ( impL <= 1 ) return impulse;
+
+	var half   = Math.floor( impL / 2 );
+	var even   = fft( impulse.filter( ( i, imp ) => imp % 2 === 0 ) );
+	var odd    = fft( impulse.filter( ( i, imp ) => imp % 2 !== 0 ) );
+	var impfft = Array( impL ).fill( 0 ).map( () => [ 0, 0 ] );
+	for ( var k = 0; k < half; k++ ) {
+		var exp     = [ -2 * Math.PI * k / impL, 0 ];
+		var expTerm = [ Math.cos( exp[ 0 ] ) + Math.sin( exp[ 1 ] ), -Math.sin( exp[ 0 ] ) + Math.cos( exp[ 1 ] ) ];
+		var oddTerm = [ odd[ k ][ 0 ] * expTerm[ 0 ] - odd[ k ][ 1 ] * expTerm[ 1 ], odd[ k ][ 0 ] * expTerm[ 1 ] + odd[ k ][ 1 ] * expTerm[ 0 ] ];
+
+		impfft[ k ]        = [ even[ k ][ 0 ] + oddTerm[ 0 ], even[ k ][ 1 ] + oddTerm[ 1 ] ];
+		impfft[ k + half ] = [ even[ k ][ 0 ] - oddTerm[ 0 ], even[ k ][ 1 ] - oddTerm[ 1 ] ];
+	}
+	return impfft;
+}
+function readWaveCoeffs( conf ) {
+	var file = conf.filename;
+	fetch( file ).then( response => {
+		return conf.type === 'Wav' ? response.arrayBuffer() : response.text();
+	} ).then( data => {
+		if ( conf.type === 'Wav' ) {
+			var audioCtx    = new AudioContext();
+			return audioCtx.decodeAudioData( data );
+		} else {
+			var skip = conf.skip_bytes_lines;
+			var read = conf.read_bytes_lines;
+			if ( file.slice( -3 ) === 'txt' ) {
+				var lines = data.split( '\n' ).slice( skip, read ); // array
+				console.log( lines );
+			} else {
+				var bytes = data.slice( skip, read ); // string
+				console.log( bytes );
+			}
+			return
+			
+		}
+	} ).then( decoded => {
+		if ( decoded.slice( 0, 4 ).toString() !== 'RIFF' || decoded.slice( 8, 12 ).toString() !== 'WAVE' ) {
+			console.log( 'Not standard wav file' );
+			return
+		}
+		
+		var decodedL   = decoded.length;
+		var start      = 12; // skip the fixed header
+		while ( nextChunk < decodedL ) {
+			var header = decoded.slice( start, start + 8 );
+			var type   = header.slice( 0, 4 ).toString( 'utf8' );
+			var length = struct.unpack( '<L', header.slice( 4, 8 ) )[ 0 ];
+			if ( type === 'fmt ' ) {
+				var data              = decoded.slice( start, start + length );
+				wavInfo.sampleformat  = NUMBERFORMATS[ struct.unpack( '<H', data.slice( 0, 2 ) )[ 0 ] ] || 'unknown';
+				wavInfo.channels      = struct.unpack( '<H', data.slice( 2, 4 ) )[ 0 ];
+				wavInfo.samplerate    = struct.unpack( '<L', data.slice( 4, 8 ) )[ 0 ];
+				wavInfo.byterate      = struct.unpack( '<L', data.slice( 8, 12 ) )[ 0 ];
+				wavInfo.bytesperframe = struct.unpack( '<H', data.slice( 12, 14 ) )[ 0 ];
+				wavInfo.bitspersample = struct.unpack( '<H', data.slice( 14, 16 ) )[ 0 ];
+				var bytesPerSample    = wavInfo.bytesperframe / wavInfo.channels;
+				// Handle extended fmt chunk
+				if ( wavInfo.sampleformat === 'extended' ) {
+					if ( length !== 40 ) {
+						console.log( 'Invalid extended wav header' );
+						return
+					}
+					
+					var cbSize             = struct.unpack( '<H', data.slice( 16, 18 ) )[ 0 ];
+					var validBitsPerSample = struct.unpack( '<H', data.slice( 18, 20 ) )[ 0 ];
+					if ( cbSize !== 22 || validBitsPerSample !== wavInfo.bitspersample ) {
+						console.log( 'Invalid extended wav header' );
+						return
+					}
+					
+					var _channelMask = struct.unpack( '<L', data.slice( 20, 24 ) )[ 0 ];
+					var subformat    = struct.unpack( '<LHHBBBBBBBB', data.slice( 24, 40 ) );
+					if ( arraysEqual( subformat, SUBFORMAT_FLOAT ) ) {
+						wavInfo.sampleformat = 'FLOAT'+ wavInfo.bitspersample +'LE';
+					} else if ( arraysEqual( subformat, SUBFORMAT_INT ) ) {
+						wavInfo.sampleformat = 'S'+ wavInfo.bitspersample +'LE';
+						if ( wavInfo.bitspersample === 24 && bytesPerSample === 3 ) wavInfo.sampleformat += 3;
+					} else {
+						wavInfo.sampleformat = 'unknown';
+					}
+				}
+			} else if ( type === 'data' ) {
+				wavInfo.dataoffset = start + 8;
+				wavInfo.datalength = length;
+			}
+			nextChunk += decodedL + 8;
+		}
+		if ( wavInfo.datalength === null || wavInfo.sampleformat === null || wavInfo.sampleformat === 'unknown' ) return
+		
+		var values    = wavInfo.filter( ( _, index ) => index % wavInfo.channels === conf.channel );
+		return values
+	} );
+}
 function unwrapPhase(values, threshold = 150.0) {
 	var offset = 0;
 	var prevdiff = 0.0;
@@ -436,9 +533,8 @@ class Conv {
 		if (!conf) {
 			conf = { values: [1.0] };
 		}
-		if (conf.filename) {
-///////////////////////////////////////////////////////////// Implement your read_coeffs function here
-			this.impulse = read_coeffs(conf);
+		if ( conf.type === 'Wav' ) {
+			this.impulse = readWaveCoeffs( conf );
 		} else {
 			this.impulse = conf.values;
 		}
@@ -465,7 +561,6 @@ class Conv {
 		var impulse    = this.impulse.slice();
 		var padding    = new Array( npoints - impulselen ).fill( 0.0 );
 		impulse        = impulse.concat( padding );
-///////////////////////////////////////////////////////////// Implement FFT function here
 		var impfft     = fft( impulse );
 		var f_fft      = Array.from( { length: npoints / 2 }, ( _, n ) => this.fs * n / npoints );
 		var cut        = impfft.slice( 0, npoints / 2 );
