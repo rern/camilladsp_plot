@@ -158,12 +158,12 @@ async function readWavCoeffs(fname, channel) {
 function analyzeWavChunk(type, start, length, file, wavInfo) {
     if (type === "fmt ") {
         const data = file.slice(start, start + length);
-        wavInfo.sampleformat = NUMBERFORMATS[struct.unpack("<H", data.slice(0, 2))[0]] || "unknown";
-        wavInfo.channels = struct.unpack("<H", data.slice(2, 4))[0];
-        wavInfo.samplerate = struct.unpack("<L", data.slice(4, 8))[0];
-        wavInfo.byterate = struct.unpack("<L", data.slice(8, 12))[0];
-        wavInfo.bytesperframe = struct.unpack("<H", data.slice(12, 14))[0];
-        wavInfo.bitspersample = struct.unpack("<H", data.slice(14, 16))[0];
+        wavInfo.sampleformat = NUMBERFORMATS[struct.unpack("<H", data.slice(0, 2))[0]] || "unknown"; // Uint16
+        wavInfo.channels = struct.unpack("<H", data.slice(2, 4))[0];        // Uint16
+        wavInfo.samplerate = struct.unpack("<L", data.slice(4, 8))[0];      // Uint32
+        wavInfo.byterate = struct.unpack("<L", data.slice(8, 12))[0];       // Uint32
+        wavInfo.bytesperframe = struct.unpack("<H", data.slice(12, 14))[0]; // Uint16
+        wavInfo.bitspersample = struct.unpack("<H", data.slice(14, 16))[0]; // Uint16
         const bytesPerSample = wavInfo.bytesperframe / wavInfo.channels;
 
         // Handle extended fmt chunk
@@ -172,13 +172,13 @@ function analyzeWavChunk(type, start, length, file, wavInfo) {
                 console.log("Invalid extended wav header");
                 return;
             }
-            const cbSize = struct.unpack("<H", data.slice(16, 18))[0];
-            const validBitsPerSample = struct.unpack("<H", data.slice(18, 20))[0];
+            const cbSize = struct.unpack("<H", data.slice(16, 18))[0];             // Uint16
+            const validBitsPerSample = struct.unpack("<H", data.slice(18, 20))[0]; // Uint16
             if (cbSize !== 22 || validBitsPerSample !== wavInfo.bitspersample) {
                 console.log("Invalid extended wav header");
                 return;
             }
-            const _channelMask = struct.unpack("<L", data.slice(20, 24))[0];
+            const _channelMask = struct.unpack("<L", data.slice(20, 24))[0];       // Uint32
             const subformat = struct.unpack("<LHHBBBBBBBB", data.slice(24, 40));
             if (arraysEqual(subformat, SUBFORMAT_FLOAT)) {
                 wavInfo.sampleformat = "float";
