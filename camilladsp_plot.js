@@ -28,23 +28,6 @@ function calcGroupDelay( freq, phase ) {
 	}
 	return [ freqNew, groupDelay ];
 }
-function fft( input ) {
-	var N       = input.length;
-	if ( N <= 1 ) return input;
-
-	var even    = fft( input.filter( ( _, i ) => i % 2 === 0 ) );
-	var odd     = fft( input.filter( ( _, i ) => i % 2 !== 0 ) );
-	var results = new Array( N ).fill( null ).map(() => Complex( 0, 0 ) );
-	for ( let k = 0; k < N / 2; k++ ) {
-		var t = Complex(
-			Math.cos( -2 * Math.PI * k / N ),
-			Math.sin( -2 * Math.PI * k / N )
-		).mul( odd[ k ] );
-		results[ k ]         = t.add( even[ k ] );
-		results[ k + N / 2 ] = t.sub( even[ k ] );
-	}
-	return results;
-}
 function mapGain( cgain ) {
 	return cgain.map( A => isFinite( A.re ) ? 20 * Math.log10( A.abs() + 1e-15 ) : 0 )
 }
@@ -488,9 +471,8 @@ class Conv {
 		var impulse    = this.impulse.slice();
 		var padding    = new Array( npoints - impulselen ).fill( 0 );
 		impulse        = impulse.concat( padding );
-		var impfft     = fft( impulse );
 		var f_fft      = Array.from( { length: npoints / 2 }, ( _, n ) => this.fs * n / npoints );
-		var cut        = impfft.slice( 0, npoints / 2 );
+		var cut        = this.fft_im.slice( 0, npoints / 2 );
 		if ( removeDelay ) {
 			var maxidx = this.findPeak();
 			var cutL   = cut.length;
@@ -539,14 +521,16 @@ class Conv {
 	}
 
 	gainAndPhase( freq, removeDelay = false, callback ) {
-		bash( "camilla-audiofileread.py '"+ JSON.stringify( this.conf ) +"'", im => {
-			this.impulse        = im;
+		bash( "camilla_audiofileread.py '"+ JSON.stringify( this.conf ) +"'", data => {
+			this.impulse        = data[ 0 ];
+			this.fft_im         = [];
+			data[ 1 ].forEach( ri => this.fft_im.push( Complex( ri ) ) );
 			var [ f_fft, Avec ] = this.complexGain(null, removeDelay);
 			Avec                = this.interpolatePolar(Avec, f_fft, freq);
 			var ga              = mapGain( Avec );
 			var ph              = mapPhase( Avec );
 			var [ fg, gr ]      = calcGroupDelay( freq, ph );
-			callback( fg, ga, gr, ph, im );
+			callback( fg, ga, gr, ph, this.impulse );
 		}, 'json' );
 	}
 
