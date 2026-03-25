@@ -555,14 +555,34 @@ class Delay extends BaseFilter {
 		}
 
 		this.subsample = conf.subsample === true;
+		if ( this.delaySamples < 0.1 ) this.subsample = false;
 		if ( this.subsample ) {
 			this.delayFullSamples = Math.floor( this.delaySamples );
 			this.fraction = this.delaySamples - this.delayFullSamples;
-			this.a1 = 1 - this.fraction;
-			this.a2 = 0;
-			this.b0 = 1 - this.fraction;
-			this.b1 = 1;
-			this.b2 = 0;
+
+			if ( this.delaySamples < 1.1 ) {
+				this.delayFullSamples = 0;
+				this.fraction = this.delaySamples;
+				this.a1 = ( 1 - this.fraction ) / ( 1 + this.fraction );
+				this.a2 = 0;
+				this.b0 = ( 1 - this.fraction ) / ( 1 + this.fraction );
+				this.b1 = 1;
+				this.b2 = 0;
+			} else {
+				this.delayFullSamples -= 1;
+                this.fraction += 1.0;
+                if ( this.fraction < 1.1 ) {
+                    this.delayFullSamples -= 1;
+                    this.fraction += 1;
+				}
+				this.coeff1 = 2 * ( 2 - this.fraction ) / ( 1 + this.fraction );
+				this.coeff2 = ( 2 - this.fraction ) / ( 2 + this.fraction ) * ( 1 - this.fraction ) / ( 1 + this.fraction );
+				this.a1 = this.coeff1;
+				this.a2 = this.coeff2;
+				this.b0 = this.coeff2;
+				this.b1 = this.coeff1;
+				this.b2 = 1;
+			}
 		} else {
 			this.delayFullSamples = Math.round( this.delaySamples );
 		}
