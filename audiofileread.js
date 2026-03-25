@@ -13,33 +13,36 @@ const SUBFORMAT_FLOAT = [3, 0, 16, 128, 0, 0, 170, 0, 56, 155, 113];
 const SUBFORMAT_INT = [1, 0, 16, 128, 0, 0, 170, 0, 56, 155, 113];
 
 const TYPES_DIRECT = {
-    'FLOAT64LE': '<d',
-    'FLOAT32LE': '<f',
-    'S16LE': '<h',
-    'S32LE': '<i',
+    'F64_LE': '<d',
+    'F32_LE': '<f',
+    'S16_LE': '<h',
+    'S32_LE': '<i',
 };
 
 const TYPES_INDIRECT = {
-    'S24LE': { 'pattern': 'sssx', 'endian': 'little' },
-    'S24LE3': { 'pattern': 'sss', 'endian': 'little' },
+    'S24_4_RJ_LE': { 'pattern': 'sssx', 'endian': 'little' },
+    'S24_4_LJ_LE': { 'pattern': 'xsss', 'endian': 'little' },
+    'S24_3_LE': { 'pattern': 'sss', 'endian': 'little' },
 };
 
 const SCALEFACTOR = {
-    'FLOAT64LE': 1.0,
-    'FLOAT32LE': 1.0,
-    'S16LE': 2 ** 15,
-    'S24LE': 2 ** 23,
-    'S24LE3': 2 ** 23,
-    'S32LE': 2 ** 31,
+    'F64_LE': 1.0,
+    'F32_LE': 1.0,
+    'S16_LE': 2 ** 15,
+    'S24_4_RJ_LE': 2 ** 23,
+    'S24_4_LJ_LE': 2 ** 23,
+    'S24_3_LE': 2 ** 23,
+    'S32_LE': 2 ** 31,
 };
 
 const BYTESPERSAMPLE = {
-    'FLOAT64LE': 8,
-    'FLOAT32LE': 4,
-    'S16LE': 2,
-    'S24LE': 4,
-    'S24LE3': 3,
-    'S32LE': 4,
+    'F64_LE': 8,
+    'F32_LE': 4,
+    'S16_LE': 2,
+    'S24_4_RJ_LE': 4,
+    'S24_4_LJ_LE': 4,
+    'S24_3_LE': 3,
+    'S32_LE': 4,
 };
 
 async function readCoeffs(conf) {
@@ -191,19 +194,19 @@ function analyzeWavChunk(type, start, length, file, wavInfo) {
 
         if (wavInfo.sampleformat === "int") {
             if (wavInfo.bitspersample === 16) {
-                wavInfo.sampleformat = "S16LE";
+                wavInfo.sampleformat = "S16_LE";
             } else if (wavInfo.bitspersample === 24 && bytesPerSample === 3) {
-                wavInfo.sampleformat = "S24LE3";
+                wavInfo.sampleformat = "S24_3_LE";
             } else if (wavInfo.bitspersample === 24 && bytesPerSample === 4) {
-                wavInfo.sampleformat = "S24LE";
+                wavInfo.sampleformat = "S24_4_LJ_LE";
             } else if (wavInfo.bitspersample === 32) {
-                wavInfo.sampleformat = "S32LE";
+                wavInfo.sampleformat = "S32_LE";
             }
         } else if (wavInfo.sampleformat === "float") {
             if (wavInfo.bitspersample === 32) {
-                wavInfo.sampleformat = "FLOAT32LE";
+                wavInfo.sampleformat = "F32_LE";
             } else if (wavInfo.bitspersample === 64) {
-                wavInfo.sampleformat = "FLOAT64LE";
+                wavInfo.sampleformat = "F64_LE";
             }
         } else {
             wavInfo.sampleformat = "unknown";
