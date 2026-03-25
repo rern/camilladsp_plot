@@ -553,7 +553,6 @@ class Delay extends BaseFilter {
 		} else {
 			throw new Error( 'Unknown unit: '+ unit );
 		}
-
 		this.subsample = conf.subsample === true;
 		if ( this.delaySamples < 0.1 ) this.subsample = false;
 		if ( this.subsample ) {
