@@ -559,7 +559,6 @@ class Delay extends BaseFilter {
 		if ( this.subsample ) {
 			this.delayFullSamples = Math.floor( this.delaySamples );
 			this.fraction = this.delaySamples - this.delayFullSamples;
-
 			if ( this.delaySamples < 1.1 ) {
 				this.delayFullSamples = 0;
 				this.fraction = this.delaySamples;
