@@ -1,6 +1,6 @@
 ### For rAudio
 Converted from [pycamilladsp-plot](https://github.com/HEnquist/pycamilladsp-plot/blob/master/camilladsp_plot/)
-- `/srv/http/assets/js/camilla.js` << `eval_filterconfig.py`
+- `/srv/http/assets/js/camilla.js` << `eval_filterconfig.py` (script in rAudio js)
 	- `graph.filter()`
 	- `graph.pipeline()`
 - `/srv/http/assets/js/plugin/camilladsp_plot.js` << `filters.py`
